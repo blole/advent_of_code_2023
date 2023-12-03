@@ -40,6 +40,44 @@ impl<'a, T, E> Tokenizer<'a, T, E>
             Ok(std::mem::take(&mut self.buffer))
         }
     }
+
+    fn read_until(
+        &mut self,
+        c: &str,
+    ) -> Result<String, E> {
+        if let Some(c_index) = self.buffer.find(c) {
+            let s = self.buffer.drain(..c_index).collect();
+            Ok(s)
+        } else {
+            loop {
+                let read_bytes = self.tokenizable.tok_read_line(&mut self.buffer)?;
+                if read_bytes == 0 {
+                    let s = self.buffer.drain(..).collect();
+                    return Ok(s);
+                }
+                let offset = self.buffer.len() - read_bytes;
+                if let Some(c_index) = self.buffer[offset..].find(c) {
+                    let s = self.buffer.drain(..offset + c_index).collect();
+                    return Ok(s);
+                }
+            }
+        }
+    }
+
+    fn peek_line(
+        &mut self,
+    ) -> Result<&str, E> {
+        if let Some(newline_index) = self.buffer.find('\n') {
+            return Ok(&self.buffer[..=newline_index])
+        }
+        self.tokenizable.tok_read_line(&mut self.buffer)?;
+
+        return if let Some(newline_index) = self.buffer.find('\n') {
+            Ok(&self.buffer[..=newline_index])
+        } else {
+            Ok(&self.buffer)
+        }
+    }
 }
 
 impl<T> From<T> for Tokenizer<'_, String, io::Error>
@@ -53,27 +91,28 @@ impl<T> From<T> for Tokenizer<'_, String, io::Error>
 
 trait Tokenizable<'a> {
     type Err: Error;
-    fn tok_read_line(&mut self, buf: &mut String) -> Result<(), Self::Err>;
+    fn tok_read_line(&mut self, buf: &mut String) -> Result<usize, Self::Err>;
 }
 
 impl<'a> Tokenizable<'a> for StdinLock<'a> {
     type Err = io::Error;
 
-    fn tok_read_line(&mut self, buf: &mut String) -> Result<(), Self::Err> {
-        return self.read_line(buf).map(|_| ());
+    fn tok_read_line(&mut self, buf: &mut String) -> Result<usize, Self::Err> {
+        return self.read_line(buf);
     }
 }
 
 impl Tokenizable<'_> for String {
     type Err = io::Error;
 
-    fn tok_read_line(&mut self, buf: &mut String) -> Result<(), Self::Err> {
+    fn tok_read_line(&mut self, buf: &mut String) -> Result<usize, Self::Err> {
         if let Some(newline_index) = self.find('\n') {
             buf.extend(self.drain(..=newline_index));
-            Ok(())
+            Ok(newline_index)
         } else {
+            let length = self.len();
             buf.extend(self.drain(..));
-            Ok(())
+            Ok(length)
         }
     }
 }
@@ -123,8 +162,36 @@ mod tests_day04 {
     }
 
     #[test]
-    fn p2_0() {
-        //let diagnostic_report = DIAGNOSTIC_REPORT.map(|line| i32::from_str_radix(&line, 2).unwrap());
-        //assert_eq!(230, part2(&diagnostic_report.to_vec(), 5));
+    fn peek_line_simple_cases() {
+        let mut tokenizer = Tokenizer::from("a\nb\nc");
+        assert_eq!("a\n", tokenizer.peek_line().unwrap());
+        assert_eq!("a\n", tokenizer.read_line().unwrap());
+        assert_eq!("b\n", tokenizer.peek_line().unwrap());
+        assert_eq!("b\n", tokenizer.peek_line().unwrap());
+        assert_eq!("b\n", tokenizer.read_line().unwrap());
+        assert_eq!("c", tokenizer.peek_line().unwrap());
+        assert_eq!("c", tokenizer.peek_line().unwrap());
+        assert_eq!("c", tokenizer.read_line().unwrap());
+    }
+
+    #[test]
+    fn read_until_simple_cases() {
+        let mut tokenizer = Tokenizer::from("abc\ndef");
+        assert_eq!("a", tokenizer.read_until("b").unwrap());
+        assert_eq!("", tokenizer.read_until("b").unwrap());
+        assert_eq!("bc", tokenizer.read_until("\n").unwrap());
+        assert_eq!("", tokenizer.read_until("\n").unwrap());
+        assert_eq!("\ndef", tokenizer.read_until("x").unwrap());
+        assert_eq!("", tokenizer.read_until("x").unwrap());
+    }
+
+    #[test]
+    fn read_until_unicode() {
+        // 4\u{fe0f}\u{20e3} is "keycap digit four" or :four:
+        let mut tokenizer = Tokenizer::from("a\nb4\u{fe0f}\u{20e3}c4d");
+        assert_eq!("a\nb", tokenizer.read_until("4\u{fe0f}\u{20e3}").unwrap());
+        assert_eq!("", tokenizer.read_until("4").unwrap());
+        assert_eq!("4\u{fe0f}\u{20e3}", tokenizer.read_until("c").unwrap());
+        assert_eq!("c4d", tokenizer.read_until("x").unwrap());
     }
 }
