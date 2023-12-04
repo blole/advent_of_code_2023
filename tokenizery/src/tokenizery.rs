@@ -1,7 +1,10 @@
 use std::error::Error;
 use std::io;
-use std::io::{BufRead, StdinLock};
+use std::io::BufRead;
 use std::marker::PhantomData;
+use crate::from_tokenizer::FromTokenizer;
+use crate::tokenizable::Tokenizable;
+use crate::tokenizer_lookahead::TokenizerLookahead;
 
 pub struct Tokenizer<'a, T, E>
     where
@@ -9,7 +12,7 @@ pub struct Tokenizer<'a, T, E>
         E: Error,
 {
     tokenizable: T,
-    buffer: String,
+    pub(crate) buffer: String,
     phantom: PhantomData<&'a T>,
 }
 
@@ -63,7 +66,7 @@ impl<'a, T, E> Tokenizer<'a, T, E>
         }
     }
 
-    fn peek_line(
+    pub(crate) fn peek_line(
         &mut self,
         offset: usize,
     ) -> Result<&str, E> {
@@ -82,112 +85,9 @@ impl<'a, T, E> Tokenizer<'a, T, E>
     pub fn peek<R, F: FromTokenizer<'a, T, E, R>>(
         &'a mut self,
     ) -> Result<Option<R>, E> {
-        let mut peeker = TokenizerPeeker::new(self);
+        let mut peeker = TokenizerLookahead::new(self);
         let result = F::peek_from_tokenizer(&mut peeker);
         return result;
-    }
-}
-
-struct TokenizerPeeker<'a, T, E>
-    where
-        T: Tokenizable<'a, Err=E>,
-        E: Error,
-{
-    tokenizer: &'a mut Tokenizer<'a, T, E>,
-    offset: usize,
-}
-
-impl<'a, T, E> TokenizerPeeker<'a, T, E>
-    where
-        T: Tokenizable<'a, Err=E>,
-        E: Error,
-{
-    fn new(
-        tokenizer: &'a mut Tokenizer<'a, T, E>,
-    ) -> Self {
-        Self {
-            tokenizer,
-            offset: 0,
-        }
-    }
-
-    fn temp_peek_line(
-        &mut self,
-    ) -> Result<&str, E> {
-        let line = self.tokenizer.peek_line(self.offset)?;
-        self.offset += line.len();
-        return Ok(line);
-    }
-
-    fn temp_peek_until(
-        &'a mut self,
-        string: &str,
-    ) -> Result<&str, E> {
-        let start_offset = self.offset;
-        loop {
-            let line = self.tokenizer.peek_line(self.offset)?;
-            if line.is_empty() {
-                return Ok("");
-            }
-            if let Some(c_index) = line.find(string) {
-                self.offset += c_index;
-                return Ok(&self.tokenizer.buffer[start_offset..=self.offset]);
-            }
-            self.offset += line.len();
-        }
-    }
-
-    fn temp_peek_char(
-        &mut self,
-    ) -> Result<Option<char>, E> {
-        let line = self.tokenizer.peek_line(self.offset)?;
-        return if line.len() == 0 {
-            Ok(None)
-        } else {
-            let char = line.chars().next().unwrap();
-            self.offset += char.len_utf8();
-            Ok(Some(char))
-        }
-    }
-}
-
-struct Line {
-    line: String,
-}
-
-trait FromTokenizer<'a, T, E, R>
-    where
-        T: Tokenizable<'a, Err=E>,
-        E: Error,
-{
-    fn peek_from_tokenizer(
-        peeker: &mut TokenizerPeeker<'a, T, E>,
-    ) -> Result<Option<R>, E>;
-}
-
-impl<'a, T> FromTokenizer<'a, T, io::Error, Line> for Line
-    where
-        T: Tokenizable<'a, Err=io::Error>,
-{
-    fn peek_from_tokenizer(
-        peeker: &mut TokenizerPeeker<'a, T, io::Error>,
-    ) -> Result<Option<Line>, io::Error> {
-        return peeker
-            .temp_peek_line()
-            .map(|line|
-                Some(Line { line: line.to_string() })
-            );
-    }
-}
-
-impl<'a, T> FromTokenizer<'a, T, io::Error, char> for char
-    where
-        T: Tokenizable<'a, Err=io::Error>,
-{
-    fn peek_from_tokenizer(
-        peeker: &mut TokenizerPeeker<'a, T, io::Error>,
-    ) -> Result<Option<char>, io::Error> {
-        return peeker.temp_peek_char()
     }
 }
 
@@ -200,41 +100,11 @@ impl<T> From<T> for Tokenizer<'_, String, io::Error>
     }
 }
 
-trait Tokenizable<'a> {
-    type Err: Error;
-    fn tok_read_line(&mut self, buf: &mut String) -> Result<usize, Self::Err>;
-}
-
-impl<'a> Tokenizable<'a> for StdinLock<'a> {
-    type Err = io::Error;
-
-    fn tok_read_line(&mut self, buf: &mut String) -> Result<usize, Self::Err> {
-        return self.read_line(buf);
-    }
-}
-
-impl Tokenizable<'_> for String {
-    type Err = io::Error;
-
-    fn tok_read_line(&mut self, buf: &mut String) -> Result<usize, Self::Err> {
-        if let Some(newline_index) = self.find('\n') {
-            buf.extend(self.drain(..=newline_index));
-            Ok(newline_index)
-        } else {
-            let length = self.len();
-            buf.extend(self.drain(..));
-            Ok(length)
-        }
-    }
-}
-
-
 
 
 
 #[cfg(test)]
 mod tests_day04 {
-    use std::io::stdin;
     use super::*;
 
     #[test]
