@@ -1,6 +1,7 @@
-mod tokenizery;
+mod tokenizer;
 mod tokenizable;
 mod tokenizer_lookahead;
 mod from_tokenizer;
 
-pub use tokenizery::Tokenizer;
+pub use tokenizer::Tokenizer;
+pub use from_tokenizer::Tokenized;

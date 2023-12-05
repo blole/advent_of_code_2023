@@ -1,8 +1,7 @@
 use std::error::Error;
 use std::io;
-use std::io::BufRead;
 use std::marker::PhantomData;
-use crate::from_tokenizer::FromTokenizer;
+use crate::from_tokenizer::{FromTokenizer, Tokenized};
 use crate::tokenizable::Tokenizable;
 use crate::tokenizer_lookahead::TokenizerLookahead;
 
@@ -82,12 +81,21 @@ impl<'a, T, E> Tokenizer<'a, T, E>
         }
     }
 
-    pub fn peek<R, F: FromTokenizer<'a, T, E, R>>(
-        &'a mut self,
-    ) -> Result<Option<R>, E> {
-        let mut peeker = TokenizerLookahead::new(self);
-        let result = F::peek_from_tokenizer(&mut peeker);
-        return result;
+    pub fn peek<I: FromTokenizer<'a, T, E, I, R>, R>(
+        &mut self,
+    ) -> Result<R, E> {
+        let mut lookahead = TokenizerLookahead::new(self);
+        let Tokenized { value, consumed: _ } = I::peek_from_tokenizer(&mut lookahead)?;
+        return Ok(value);
+    }
+
+    pub fn read<I: FromTokenizer<'a, T, E, I, R>, R>(
+        &mut self,
+    ) -> Result<R, E> {
+        let mut lookahead = TokenizerLookahead::new(self);
+        let Tokenized { value, consumed } = I::peek_from_tokenizer(&mut lookahead)?;
+        self.buffer.drain(..consumed);
+        return Ok(value);
     }
 }
 
@@ -103,8 +111,10 @@ impl<T> From<T> for Tokenizer<'_, String, io::Error>
 
 
 
+
 #[cfg(test)]
-mod tests_day04 {
+mod test_tokenizer {
+    use crate::from_tokenizer::Line;
     use super::*;
 
     #[test]
@@ -147,5 +157,26 @@ mod tests_day04 {
         assert_eq!("", tokenizer.read_until("4").unwrap());
         assert_eq!("4\u{fe0f}\u{20e3}", tokenizer.read_until("c").unwrap());
         assert_eq!("c4d", tokenizer.read_until("x").unwrap());
+    }
+
+    #[test]
+    fn peek_can_peek_line_struct() {
+        let mut tokenizer = Tokenizer::from("a\nb\nc");
+        let line = tokenizer.peek::<Line, String>().unwrap();
+        assert_eq!("a\n", line);
+    }
+
+    #[test]
+    fn read_can_read_char() {
+        let mut tokenizer = Tokenizer::from("a\n4\u{fe0f}\u{20e3}c4d");
+        assert_eq!('a', tokenizer.read::<char, Option<char>>().unwrap().unwrap());
+        assert_eq!('\n', tokenizer.read::<char, Option<char>>().unwrap().unwrap());
+        assert_eq!('4', tokenizer.read::<char, Option<char>>().unwrap().unwrap());
+        assert_eq!('\u{fe0f}', tokenizer.read::<char, Option<char>>().unwrap().unwrap());
+        assert_eq!('\u{20e3}', tokenizer.read::<char, Option<char>>().unwrap().unwrap());
+        assert_eq!('c', tokenizer.read::<char, Option<char>>().unwrap().unwrap());
+        assert_eq!('4', tokenizer.read::<char, Option<char>>().unwrap().unwrap());
+        assert_eq!('d', tokenizer.read::<char, Option<char>>().unwrap().unwrap());
+        assert_eq!(None, tokenizer.read::<char, Option<char>>().unwrap());
     }
 }
