@@ -30,41 +30,6 @@ impl<'a, T, E> Tokenizer<'a, T, E>
         }
     }
 
-    pub fn read_line(
-        &mut self,
-    ) -> Result<String, E> {
-        if let Some(newline_index) = self.buffer.find('\n') {
-            let line = self.buffer.drain(..=newline_index).collect();
-            Ok(line)
-        } else {
-            self.tokenizable.tok_read_line(&mut self.buffer)?;
-            Ok(std::mem::take(&mut self.buffer))
-        }
-    }
-
-    fn read_until(
-        &mut self,
-        c: &str,
-    ) -> Result<String, E> {
-        if let Some(c_index) = self.buffer.find(c) {
-            let s = self.buffer.drain(..c_index).collect();
-            Ok(s)
-        } else {
-            loop {
-                let read_bytes = self.tokenizable.tok_read_line(&mut self.buffer)?;
-                if read_bytes == 0 {
-                    let s = self.buffer.drain(..).collect();
-                    return Ok(s);
-                }
-                let offset = self.buffer.len() - read_bytes;
-                if let Some(c_index) = self.buffer[offset..].find(c) {
-                    let s = self.buffer.drain(..offset + c_index).collect();
-                    return Ok(s);
-                }
-            }
-        }
-    }
-
     pub(crate) fn peek_line(
         &mut self,
         offset: usize,
@@ -118,38 +83,6 @@ mod test_tokenizer {
     use super::*;
 
     #[test]
-    fn read_line_simple_cases() {
-        let mut tokenizer = Tokenizer::from("a\nb\nc");
-        assert_eq!("a\n", tokenizer.read_line().unwrap());
-        assert_eq!("b\n", tokenizer.read_line().unwrap());
-        assert_eq!("c", tokenizer.read_line().unwrap());
-    }
-
-    #[test]
-    fn peek_line_simple_cases() {
-        let mut tokenizer = Tokenizer::from("a\nb\nc");
-        assert_eq!("a\n", tokenizer.peek_line(0).unwrap());
-        assert_eq!("a\n", tokenizer.read_line().unwrap());
-        assert_eq!("b\n", tokenizer.peek_line(0).unwrap());
-        assert_eq!("b\n", tokenizer.peek_line(0).unwrap());
-        assert_eq!("b\n", tokenizer.read_line().unwrap());
-        assert_eq!("c", tokenizer.peek_line(0).unwrap());
-        assert_eq!("c", tokenizer.peek_line(0).unwrap());
-        assert_eq!("c", tokenizer.read_line().unwrap());
-    }
-
-    #[test]
-    fn read_until_simple_cases() {
-        let mut tokenizer = Tokenizer::from("abc\ndef");
-        assert_eq!("a", tokenizer.read_until("b").unwrap());
-        assert_eq!("", tokenizer.read_until("b").unwrap());
-        assert_eq!("bc", tokenizer.read_until("\n").unwrap());
-        assert_eq!("", tokenizer.read_until("\n").unwrap());
-        assert_eq!("\ndef", tokenizer.read_until("x").unwrap());
-        assert_eq!("", tokenizer.read_until("x").unwrap());
-    }
-
-    #[test]
     fn temp_peek_until_unicode() {
         let mut tokenizer = Tokenizer::from("a\nb4\u{fe0f}\u{20e3}c4d");
         let mut lookahead = TokenizerLookahead::new(&mut tokenizer);
@@ -160,7 +93,7 @@ mod test_tokenizer {
     }
 
     #[test]
-    fn peek_can_peek_line_struct() {
+    fn peek_can_peek_line() {
         let mut tokenizer = Tokenizer::from("a\nb\nc");
         let line = tokenizer.peek::<Line, String>().unwrap();
         assert_eq!("a\n", line);
