@@ -36,21 +36,22 @@ impl<'a, 'b, T, E> TokenizerLookahead<'a, 'b, T, E>
     }
 
     pub(crate) fn temp_peek_until(
-        &'a mut self,
+        &mut self,
         string: &str,
     ) -> Result<&str, E> {
         let start_offset = self.offset;
         loop {
             let line = self.tokenizer.peek_line(self.offset)?;
             if line.is_empty() {
-                return Ok("");
+                break;
             }
             if let Some(c_index) = line.find(string) {
                 self.offset += c_index;
-                return Ok(&self.tokenizer.buffer[start_offset..=self.offset]);
+                break;
             }
             self.offset += line.len();
         }
+        return Ok(&self.tokenizer.buffer[start_offset..self.offset]);
     }
 
     pub(crate) fn temp_peek_char(

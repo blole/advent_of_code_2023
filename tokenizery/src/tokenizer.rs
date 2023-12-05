@@ -150,13 +150,13 @@ mod test_tokenizer {
     }
 
     #[test]
-    fn read_until_unicode() {
-        // 4\u{fe0f}\u{20e3} is "keycap digit four" or :four:
+    fn temp_peek_until_unicode() {
         let mut tokenizer = Tokenizer::from("a\nb4\u{fe0f}\u{20e3}c4d");
-        assert_eq!("a\nb", tokenizer.read_until("4\u{fe0f}\u{20e3}").unwrap());
-        assert_eq!("", tokenizer.read_until("4").unwrap());
-        assert_eq!("4\u{fe0f}\u{20e3}", tokenizer.read_until("c").unwrap());
-        assert_eq!("c4d", tokenizer.read_until("x").unwrap());
+        let mut lookahead = TokenizerLookahead::new(&mut tokenizer);
+        assert_eq!("a\nb", lookahead.temp_peek_until("4\u{fe0f}\u{20e3}").unwrap());
+        assert_eq!("", lookahead.temp_peek_until("4").unwrap());
+        assert_eq!("4\u{fe0f}\u{20e3}", lookahead.temp_peek_until("c").unwrap());
+        assert_eq!("c4d", lookahead.temp_peek_until("x").unwrap());
     }
 
     #[test]
@@ -168,6 +168,7 @@ mod test_tokenizer {
 
     #[test]
     fn read_can_read_char() {
+        // 4\u{fe0f}\u{20e3} is "keycap digit four" or :four:
         let mut tokenizer = Tokenizer::from("a\n4\u{fe0f}\u{20e3}c4d");
         assert_eq!('a', tokenizer.read::<char, Option<char>>().unwrap().unwrap());
         assert_eq!('\n', tokenizer.read::<char, Option<char>>().unwrap().unwrap());
