@@ -9,14 +9,14 @@ pub struct Tokenized<R> {
     pub consumed: usize,
 }
 
-pub trait FromTokenizer<'a, T, E, R>
+pub trait FromTokenizer<'a, I, E, R>
     where
-        T: Tokenizable<'a, Err=E>,
+        I: Tokenizable<'a, Err=E>,
         E: Error,
 
 {
     fn peek_from_tokenizer<'b>(
-        peeker: &'b mut TokenizerLookahead<'a, 'b, T, E>,
+        peeker: &'b mut TokenizerLookahead<'a, 'b, I, E>,
     ) -> Result<Tokenized<R>, E>;
 }
 
@@ -26,12 +26,12 @@ pub struct Line {
     pub value: String,
 }
 
-impl<'a, T> FromTokenizer<'a, T, io::Error, Line> for Line
+impl<'a, I> FromTokenizer<'a, I, io::Error, Line> for Line
     where
-        T: Tokenizable<'a, Err=io::Error>,
+        I: Tokenizable<'a, Err=io::Error>,
 {
     fn peek_from_tokenizer<'b>(
-        lookahead: &'b mut TokenizerLookahead<'a, 'b, T, io::Error>,
+        lookahead: &'b mut TokenizerLookahead<'a, 'b, I, io::Error>,
     ) -> Result<Tokenized<Line>, io::Error> {
         return lookahead
             .temp_peek_line()
@@ -43,12 +43,12 @@ impl<'a, T> FromTokenizer<'a, T, io::Error, Line> for Line
 
 
 
-impl<'a, T> FromTokenizer<'a, T, io::Error, char> for char
+impl<'a, I> FromTokenizer<'a, I, io::Error, char> for char
     where
-        T: Tokenizable<'a, Err=io::Error>,
+        I: Tokenizable<'a, Err=io::Error>,
 {
     fn peek_from_tokenizer<'b>(
-        lookahead: &'b mut TokenizerLookahead<'a, 'b, T, io::Error>,
+        lookahead: &'b mut TokenizerLookahead<'a, 'b, I, io::Error>,
     ) -> Result<Tokenized<char>, io::Error> {
         lookahead
             .temp_peek_char()?

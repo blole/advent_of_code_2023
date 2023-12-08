@@ -2,24 +2,24 @@ use std::error::Error;
 use crate::tokenizable::Tokenizable;
 use crate::tokenizer::Tokenizer;
 
-pub struct TokenizerLookahead<'a, 'b, T, E>
+pub struct TokenizerLookahead<'a, 'b, I, E>
     where
-        T: Tokenizable<'a, Err=E>,
+        I: Tokenizable<'a, Err=E>,
         E: Error,
         'a: 'b,
 {
-    tokenizer: &'b mut Tokenizer<'a, T, E>,
+    tokenizer: &'b mut Tokenizer<'a, I, E>,
     pub(crate) offset: usize,
 }
 
-impl<'a, 'b, T, E> TokenizerLookahead<'a, 'b, T, E>
+impl<'a, 'b, I, E> TokenizerLookahead<'a, 'b, I, E>
     where
-        T: Tokenizable<'a, Err=E>,
+        I: Tokenizable<'a, Err=E>,
         E: Error,
         'a: 'b,
 {
     pub(crate) fn new(
-        tokenizer: &'b mut Tokenizer<'a, T, E>,
+        tokenizer: &'b mut Tokenizer<'a, I, E>,
     ) -> Self {
         Self {
             tokenizer,

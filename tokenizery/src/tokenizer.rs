@@ -5,23 +5,23 @@ use crate::from_tokenizer::{FromTokenizer, Tokenized};
 use crate::tokenizable::Tokenizable;
 use crate::tokenizer_lookahead::TokenizerLookahead;
 
-pub struct Tokenizer<'a, T, E>
+pub struct Tokenizer<'a, I, E>
     where
-        T: Tokenizable<'a, Err=E>,
+        I: Tokenizable<'a, Err=E>,
         E: Error,
 {
-    tokenizable: T,
+    tokenizable: I,
     pub(crate) buffer: String,
-    phantom: PhantomData<&'a T>,
+    phantom: PhantomData<&'a I>,
 }
 
-impl<'a, T, E> Tokenizer<'a, T, E>
+impl<'a, I, E> Tokenizer<'a, I, E>
     where
-        T: Tokenizable<'a, Err=E>,
+        I: Tokenizable<'a, Err=E>,
         E: Error,
 {
     pub fn new(
-        tokenizable: T,
+        tokenizable: I,
     ) -> Self {
         Self {
             tokenizable,
@@ -46,7 +46,7 @@ impl<'a, T, E> Tokenizer<'a, T, E>
         }
     }
 
-    pub fn peek<R: FromTokenizer<'a, T, E, R>>(
+    pub fn peek<R: FromTokenizer<'a, I, E, R>>(
         &mut self,
     ) -> Result<Option<R>, E> {
         let mut lookahead = TokenizerLookahead::new(self);
@@ -54,7 +54,7 @@ impl<'a, T, E> Tokenizer<'a, T, E>
         return Ok(value);
     }
 
-    pub fn read<R: FromTokenizer<'a, T, E, R>> (
+    pub fn read<R: FromTokenizer<'a, I, E, R>> (
         &mut self,
     ) -> Result<Option<R>, E> {
         let mut lookahead = TokenizerLookahead::new(self);
