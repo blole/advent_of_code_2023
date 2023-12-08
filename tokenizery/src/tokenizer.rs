@@ -46,19 +46,19 @@ impl<'a, T, E> Tokenizer<'a, T, E>
         }
     }
 
-    pub fn peek<I: FromTokenizer<'a, T, E, I, R>, R>(
+    pub fn peek<R: FromTokenizer<'a, T, E, R>>(
         &mut self,
-    ) -> Result<R, E> {
+    ) -> Result<Option<R>, E> {
         let mut lookahead = TokenizerLookahead::new(self);
-        let Tokenized { value, consumed: _ } = I::peek_from_tokenizer(&mut lookahead)?;
+        let Tokenized { value, consumed: _ } = R::peek_from_tokenizer(&mut lookahead)?;
         return Ok(value);
     }
 
-    pub fn read<I: FromTokenizer<'a, T, E, I, R>, R>(
+    pub fn read<R: FromTokenizer<'a, T, E, R>> (
         &mut self,
-    ) -> Result<R, E> {
+    ) -> Result<Option<R>, E> {
         let mut lookahead = TokenizerLookahead::new(self);
-        let Tokenized { value, consumed } = I::peek_from_tokenizer(&mut lookahead)?;
+        let Tokenized { value, consumed } = R::peek_from_tokenizer(&mut lookahead)?;
         self.buffer.drain(..consumed);
         return Ok(value);
     }
@@ -95,7 +95,7 @@ mod test_tokenizer {
     #[test]
     fn peek_can_peek_line() {
         let mut tokenizer = Tokenizer::from("a\nb\nc");
-        let line = tokenizer.peek::<Line, String>().unwrap();
+        let line = tokenizer.peek::<Line>().unwrap().unwrap().value;
         assert_eq!("a\n", line);
     }
 
@@ -103,14 +103,14 @@ mod test_tokenizer {
     fn read_can_read_char() {
         // 4\u{fe0f}\u{20e3} is "keycap digit four" or :four:
         let mut tokenizer = Tokenizer::from("a\n4\u{fe0f}\u{20e3}c4d");
-        assert_eq!('a', tokenizer.read::<char, Option<char>>().unwrap().unwrap());
-        assert_eq!('\n', tokenizer.read::<char, Option<char>>().unwrap().unwrap());
-        assert_eq!('4', tokenizer.read::<char, Option<char>>().unwrap().unwrap());
-        assert_eq!('\u{fe0f}', tokenizer.read::<char, Option<char>>().unwrap().unwrap());
-        assert_eq!('\u{20e3}', tokenizer.read::<char, Option<char>>().unwrap().unwrap());
-        assert_eq!('c', tokenizer.read::<char, Option<char>>().unwrap().unwrap());
-        assert_eq!('4', tokenizer.read::<char, Option<char>>().unwrap().unwrap());
-        assert_eq!('d', tokenizer.read::<char, Option<char>>().unwrap().unwrap());
-        assert_eq!(None, tokenizer.read::<char, Option<char>>().unwrap());
+        assert_eq!('a', tokenizer.read::<char>().unwrap().unwrap());
+        assert_eq!('\n', tokenizer.read::<char>().unwrap().unwrap());
+        assert_eq!('4', tokenizer.read::<char>().unwrap().unwrap());
+        assert_eq!('\u{fe0f}', tokenizer.read::<char>().unwrap().unwrap());
+        assert_eq!('\u{20e3}', tokenizer.read::<char>().unwrap().unwrap());
+        assert_eq!('c', tokenizer.read::<char>().unwrap().unwrap());
+        assert_eq!('4', tokenizer.read::<char>().unwrap().unwrap());
+        assert_eq!('d', tokenizer.read::<char>().unwrap().unwrap());
+        assert_eq!(None, tokenizer.read::<char>().unwrap());
     }
 }
