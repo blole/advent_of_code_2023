@@ -8,7 +8,7 @@ pub struct TokenizerLookahead<'a, 'b, I, E>
         E: Error,
         'a: 'b,
 {
-    tokenizer: &'b mut Tokenizer<'a, I, E>,
+    pub(crate) tokenizer: &'b mut Tokenizer<'a, I, E>,
     pub(crate) offset: usize,
 }
 

@@ -16,7 +16,7 @@ pub trait FromTokenizer<'a, I, E, R>
 
 {
     fn peek_from_tokenizer<'b>(
-        peeker: &'b mut TokenizerLookahead<'a, 'b, I, E>,
+        lookahead: &mut TokenizerLookahead<'a, 'b, I, E>,
     ) -> Result<Tokenized<R>, E>;
 }
 
@@ -31,12 +31,16 @@ impl<'a, I> FromTokenizer<'a, I, io::Error, Line> for Line
         I: Tokenizable<'a, Err=io::Error>,
 {
     fn peek_from_tokenizer<'b>(
-        lookahead: &'b mut TokenizerLookahead<'a, 'b, I, io::Error>,
+        lookahead: &mut TokenizerLookahead<'a, 'b, I, io::Error>,
     ) -> Result<Tokenized<Line>, io::Error> {
         return lookahead
             .temp_peek_line()
             .map(|line|
-                Tokenized { value: Some(Line { value: line.to_string() }), consumed: line.len() }
+                if line.is_empty() {
+                    Tokenized { value: None, consumed: 0 }
+                } else {
+                    Tokenized { value: Some(Line { value: line.trim_end_matches("\n").to_string() }), consumed: line.len() }
+                }
             );
     }
 }
@@ -48,7 +52,7 @@ impl<'a, I> FromTokenizer<'a, I, io::Error, char> for char
         I: Tokenizable<'a, Err=io::Error>,
 {
     fn peek_from_tokenizer<'b>(
-        lookahead: &'b mut TokenizerLookahead<'a, 'b, I, io::Error>,
+        lookahead: &mut TokenizerLookahead<'a, 'b, I, io::Error>,
     ) -> Result<Tokenized<char>, io::Error> {
         lookahead
             .temp_peek_char()?

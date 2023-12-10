@@ -3,6 +3,7 @@ use std::io;
 use std::marker::PhantomData;
 use crate::from_tokenizer::{FromTokenizer, Tokenized};
 use crate::tokenizable::Tokenizable;
+use crate::tokenized_iterator::TokenizedIterator;
 use crate::tokenizer_lookahead::TokenizerLookahead;
 
 pub struct Tokenizer<'a, I, E>
@@ -46,21 +47,45 @@ impl<'a, I, E> Tokenizer<'a, I, E>
         }
     }
 
-    pub fn peek<R: FromTokenizer<'a, I, E, R>>(
+    pub fn peek<R>(
         &mut self,
-    ) -> Result<Option<R>, E> {
+    ) -> Result<Option<R>, E>
+        where
+            R: FromTokenizer<'a, I, E, R>,
+    {
         let mut lookahead = TokenizerLookahead::new(self);
         let Tokenized { value, consumed: _ } = R::peek_from_tokenizer(&mut lookahead)?;
         return Ok(value);
     }
 
-    pub fn read<R: FromTokenizer<'a, I, E, R>> (
+    pub fn read<R> (
         &mut self,
-    ) -> Result<Option<R>, E> {
+    ) -> Result<Option<R>, E>
+        where
+            R: FromTokenizer<'a, I, E, R>,
+    {
         let mut lookahead = TokenizerLookahead::new(self);
         let Tokenized { value, consumed } = R::peek_from_tokenizer(&mut lookahead)?;
         self.buffer.drain(..consumed);
         return Ok(value);
+    }
+
+    pub fn peek_iter<'b, R> (
+        &'b mut self,
+    ) -> TokenizedIterator<'a, 'b, I, E, R>
+        where
+            R: FromTokenizer<'a, I, E, R>,
+    {
+        return TokenizedIterator::new(self, false);
+    }
+
+    pub fn read_iter<'b, R> (
+        &'b mut self,
+    ) -> TokenizedIterator<'a, 'b, I, E, R>
+        where
+            R: FromTokenizer<'a, I, E, R>,
+    {
+        return TokenizedIterator::new(self, true);
     }
 }
 
@@ -96,7 +121,7 @@ mod test_tokenizer {
     fn peek_can_peek_line() {
         let mut tokenizer = Tokenizer::from("a\nb\nc");
         let line = tokenizer.peek::<Line>().unwrap().unwrap().value;
-        assert_eq!("a\n", line);
+        assert_eq!("a", line);
     }
 
     #[test]
@@ -112,5 +137,22 @@ mod test_tokenizer {
         assert_eq!('4', tokenizer.read::<char>().unwrap().unwrap());
         assert_eq!('d', tokenizer.read::<char>().unwrap().unwrap());
         assert_eq!(None, tokenizer.read::<char>().unwrap());
+    }
+
+    #[test]
+    fn peek_iter_can_peek_lines() {
+        let mut tokenizer = Tokenizer::from("ab\ncd\nef");
+        let lines = tokenizer.peek_iter::<Line>();
+        assert_eq!(vec!("ab", "cd", "ef"), lines.map(|it| it.unwrap().value).collect::<Vec<_>>());
+        assert_eq!('a', tokenizer.read::<char>().unwrap().unwrap());
+        let lines = tokenizer.peek_iter::<Line>();
+        assert_eq!(vec!("b", "cd", "ef"), lines.map(|it| it.unwrap().value).collect::<Vec<_>>());
+    }
+
+    #[test]
+    fn read_iter_can_read_lines() {
+        let mut tokenizer = Tokenizer::from("ab\ncd\nef");
+        let lines = tokenizer.read_iter::<Line>();
+        assert_eq!(vec!("ab", "cd", "ef"), lines.map(|it| it.unwrap().value).collect::<Vec<_>>());
     }
 }
