@@ -7,7 +7,7 @@ pub trait Tokenizable<'a> {
     fn tok_read_line(&mut self, buf: &mut String) -> Result<usize, Self::Err>;
 }
 
-impl<'a> Tokenizable<'a> for StdinLock<'a> {
+impl<'a> Tokenizable<'a> for StdinLock<'static> {
     type Err = io::Error;
 
     fn tok_read_line(&mut self, buf: &mut String) -> Result<usize, Self::Err> {

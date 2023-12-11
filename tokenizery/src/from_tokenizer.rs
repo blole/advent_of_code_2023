@@ -1,6 +1,4 @@
 use std::error::Error;
-use std::io;
-
 use crate::tokenizable::Tokenizable;
 use crate::tokenizer_lookahead::TokenizerLookahead;
 
@@ -26,13 +24,14 @@ pub struct Line {
     pub value: String,
 }
 
-impl<'a, I> FromTokenizer<'a, I, io::Error, Line> for Line
+impl<'a, I, E> FromTokenizer<'a, I, E, Line> for Line
     where
-        I: Tokenizable<'a, Err=io::Error>,
+        I: Tokenizable<'a, Err=E>,
+        E: Error,
 {
     fn peek_from_tokenizer<'b>(
-        lookahead: &mut TokenizerLookahead<'a, 'b, I, io::Error>,
-    ) -> Result<Tokenized<Line>, io::Error> {
+        lookahead: &mut TokenizerLookahead<'a, 'b, I, E>,
+    ) -> Result<Tokenized<Line>, E> {
         return lookahead
             .temp_peek_line()
             .map(|line|
@@ -47,13 +46,14 @@ impl<'a, I> FromTokenizer<'a, I, io::Error, Line> for Line
 
 
 
-impl<'a, I> FromTokenizer<'a, I, io::Error, char> for char
+impl<'a, I, E> FromTokenizer<'a, I, E, char> for char
     where
-        I: Tokenizable<'a, Err=io::Error>,
+        I: Tokenizable<'a, Err=E>,
+        E: Error,
 {
     fn peek_from_tokenizer<'b>(
-        lookahead: &mut TokenizerLookahead<'a, 'b, I, io::Error>,
-    ) -> Result<Tokenized<char>, io::Error> {
+        lookahead: &mut TokenizerLookahead<'a, 'b, I, E>,
+    ) -> Result<Tokenized<char>, E> {
         lookahead
             .temp_peek_char()?
             .map_or(Ok(Tokenized { value: None, consumed: 0 }), |c| Ok(Tokenized { value: Some(c), consumed: c.len_utf8() }))
