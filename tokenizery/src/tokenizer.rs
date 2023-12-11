@@ -3,7 +3,7 @@ use std::io;
 use std::marker::PhantomData;
 use crate::from_tokenizer::{FromTokenizer, Tokenized};
 use crate::tokenizable::Tokenizable;
-use crate::tokenized_iterator::TokenizedIterator;
+use crate::tokenized_iterator::{TokenizedPeekingIterator, TokenizedReadingIterator};
 use crate::tokenizer_lookahead::TokenizerLookahead;
 
 pub struct Tokenizer<'a, I, E>
@@ -72,20 +72,20 @@ impl<'a, I, E> Tokenizer<'a, I, E>
 
     pub fn peek_iter<'b, R> (
         &'b mut self,
-    ) -> TokenizedIterator<'a, 'b, I, E, R>
+    ) -> TokenizedPeekingIterator<'a, 'b, I, E, R>
         where
             R: FromTokenizer<'a, I, E, R>,
     {
-        return TokenizedIterator::new(self, false);
+        return TokenizedPeekingIterator::new(self);
     }
 
-    pub fn read_iter<'b, R> (
-        &'b mut self,
-    ) -> TokenizedIterator<'a, 'b, I, E, R>
+    pub fn read_iter<R> (
+        &'a mut self,
+    ) -> TokenizedReadingIterator<'a, I, E, R>
         where
             R: FromTokenizer<'a, I, E, R>,
     {
-        return TokenizedIterator::new(self, true);
+        return TokenizedReadingIterator::new(self);
     }
 }
 
